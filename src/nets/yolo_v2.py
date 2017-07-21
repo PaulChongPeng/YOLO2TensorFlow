@@ -86,66 +86,7 @@ def yolo_v2_head(inputs, num_classes, anchors):
     return box_coordinate, box_confidence, box_class_probs
 
 
-def get_index_and_value(index_0, index_1, index_2, index_3, index_4, box):
-    tf_index = tf.concat(
-        [tf.reshape(tf.constant(index_0, tf.int64), [1]),
-         tf.reshape(tf.cast(index_1, tf.int64), [1]),
-         tf.reshape(tf.cast(index_2, tf.int64), [1]),
-         tf.reshape(tf.cast(index_3, tf.int64), [1]),
-         tf.reshape(tf.constant(index_4, tf.int64), [1])], 0)
-    tf_index = tf.reshape(tf_index, [1, 5])
-    tf_value = tf.reshape(box[index_4], [1])
-    return tf_index, tf_value
-
-
-def process_gbboxes(gbboxes_batch, image_size, anchors, thresh, batch_size, box_num):
-    gbboxes_batch_coor = gbboxes_batch[:, :, 0:4] * image_size[0] / 32
-    gbboxes_batch = tf.concat([gbboxes_batch_coor, tf.expand_dims(gbboxes_batch[:, :, 4], 2)], 2)
-
-    indices = []
-    values = []
-
-    index = tf.floor(gbboxes_batch[:, :, 0:2])
-
-    for i in range(batch_size):
-        for j in range(box_num):
-            box = gbboxes_batch[i, j]
-            max_iou = tf.constant(0, tf.float32)
-            index_k = 0
-            for k, anchor in enumerate(anchors):
-                iou = tf_utils.tf_anchor_iou(box, anchor)
-                max_iou, index_k = tf.cond(iou > max_iou, lambda: (iou, k), lambda: (max_iou, index_k))
-            for index_4 in range(5):
-                tf_index, tf_value = get_index_and_value(i, index[i, j, 0], index[i, j, 1], index_k, index_4, box)
-                indices.append(tf_index)
-                values.append(tf_value)
-
-    for temp_index in range(len(indices)):
-        if temp_index == 0:
-            tf_indices = indices[temp_index]
-        else:
-            tf_indices = tf.concat([tf_indices, indices[temp_index]], 0)
-
-    print(tf_indices)
-
-    for temp_index in range(len(values)):
-        if temp_index == 0:
-            tf_values = values[temp_index]
-        else:
-            tf_values = tf.concat([tf_values, values[temp_index]], 0)
-
-    print(tf_values)
-
-    boxes = tf.SparseTensor(tf_indices, tf_values,
-                            [batch_size, image_size[0] / 32, image_size[1] / 32, len(anchors), 5])
-
-    boxes = tf.sparse_tensor_to_dense(boxes, validate_indices=False)
-    # return boxes, tf_indices, tf_values
-    return boxes
-
-
 def yolo_v2_confidence_loss(box_coordinate, box_confidence, gbboxes_batch, object_mask, object_scale, no_object_scale):
-
     iou = tf_utils.tf_boxes_iou(box_coordinate, gbboxes_batch)
     object_no_detections = tf.cast(iou < 0.6, tf.float32)
 
@@ -184,7 +125,6 @@ def yolo_v2_category_loss(box_class_probs, gbboxes_batch, object_mask, num_class
 
 def yolo_v2_loss(box_coordinate, box_confidence, box_class_probs, anchors, gbboxes_batch, num_classes, object_scale=5,
                  no_object_scale=1, class_scale=1, coordinates_scale=1):
-
     object_mask = tf.reduce_sum(gbboxes_batch, 4)
     object_mask = tf.cast(object_mask > 0, tf.float32)
 

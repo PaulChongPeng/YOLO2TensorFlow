@@ -59,17 +59,12 @@ def tf_overlap(x1, len1, x2, len2):
     len1_half = len1 / 2
     len2_half = len2 / 2
 
-    # left = tf.constant([x1 - len1_half, x2 - len2_half], tf.int32)
-    # left = tf.reduce_max(left)
-    left = tf.reduce_max([x1 - len1_half, x2 - len2_half])
-
-    # right = tf.constant([x1 + len1_half, x2 + len2_half], tf.int32)
-    # right = tf.reduce_min(right)
-    right = tf.reduce_min([x1 + len1_half, x2 + len2_half])
+    left = tf.maximum(x1 - len1_half, x2 - len2_half)
+    right = tf.minimum(x1 + len1_half, x2 + len2_half)
 
     overlap = right - left
 
-    overlap = tf.cond(overlap > 0, lambda: overlap, lambda: tf.constant(0, tf.float32))
+    overlap = tf.maximum(overlap, tf.constant(0, tf.float32))
 
     return overlap
 

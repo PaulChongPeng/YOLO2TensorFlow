@@ -3,6 +3,7 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
+from utils import tf_utils
 
 slim = tf.contrib.slim
 
@@ -19,13 +20,70 @@ def convert_box(bboxes):
     return x, y, w, h
 
 
+def get_index_and_value(index_0, index_1, index_2, index_3, box):
+    tf_index = tf.concat(
+        [tf.reshape(tf.cast(index_0, tf.int64), [1]),
+         tf.reshape(tf.cast(index_1, tf.int64), [1]),
+         tf.reshape(tf.cast(index_2, tf.int64), [1]),
+         tf.reshape(tf.constant(index_3, tf.int64), [1])], 0)
+    tf_index = tf.reshape(tf_index, [1, 4])
+    tf_value = tf.reshape(box[index_3], [1])
+    return tf_index, tf_value
+
+
+def process_gbboxes_with_anchors(gbboxes, image_size, anchors, box_num):
+    gbboxes_coor = gbboxes[:, 0:4] * image_size[0] / 32
+    gbboxes = tf.concat([gbboxes_coor, tf.expand_dims(gbboxes[:, 4], 1)], 1)
+
+    indices = []
+    values = []
+
+    index = tf.floor(gbboxes[:, 0:2])
+
+    for i in range(box_num):
+        box = gbboxes[i]
+        max_iou = tf.constant(0, tf.float32)
+        index_2 = 0
+        for j, anchor in enumerate(anchors):
+            iou = tf_utils.tf_anchor_iou(box, anchor)
+            max_iou, index_2 = tf.cond(iou > max_iou, lambda: (iou, j), lambda: (max_iou, index_2))
+        for index_3 in range(5):
+            tf_index, tf_value = get_index_and_value(index[i, 0], index[i, 1], index_2, index_3, box)
+            indices.append(tf_index)
+            values.append(tf_value)
+
+    for temp_index in range(len(indices)):
+        if temp_index == 0:
+            tf_indices = indices[temp_index]
+        else:
+            tf_indices = tf.concat([tf_indices, indices[temp_index]], 0)
+
+    print(tf_indices)
+
+    for temp_index in range(len(values)):
+        if temp_index == 0:
+            tf_values = values[temp_index]
+        else:
+            tf_values = tf.concat([tf_values, values[temp_index]], 0)
+
+    print(tf_values)
+
+    boxes = tf.SparseTensor(tf_indices, tf_values, [image_size[0] // 32, image_size[1] // 32, len(anchors), 5])
+
+    boxes = tf.sparse_tensor_to_dense(boxes, validate_indices=False)
+    # return boxes, tf_indices, tf_values
+    return boxes
+
+
 def preprocess_bboxes(labels, bboxes, box_num):
     convert_box(bboxes)
     x, y, w, h = convert_box(bboxes)
     bboxes = tf.concat([x, y, w, h, tf.cast(tf.reshape(labels, (tf.size(labels), 1)), tf.float32)], 1)
-    boxes = tf.zeros((box_num - tf.shape(bboxes)[0],5), tf.float32)
-    boxes = tf.concat([bboxes,boxes],0)
-    boxes = tf.reshape(boxes,(box_num,5))
+    boxes = tf.zeros((box_num - tf.shape(bboxes)[0], 5), tf.float32)
+    boxes = tf.concat([bboxes, boxes], 0)
+    boxes = tf.reshape(boxes, (box_num, 5))
+
+    boxes = process_gbboxes_with_anchors(boxes, [416, 416], [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]], box_num)
 
     return boxes
 

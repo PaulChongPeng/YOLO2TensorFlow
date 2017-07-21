@@ -1,40 +1,13 @@
 '''
 
-************************************
-* A simple working training script *
-************************************
-
-  # Load data and create the model:
-  images, labels = LoadData(...)
-  predictions = MyModel(images)
-
-  # Define the loss:
-  slim.losses.log_loss(predictions, labels)
-  total_loss = slim.losses.get_total_loss()
-
-  # Define the optimizer:
-  optimizer = tf.train.MomentumOptimizer(FLAGS.learning_rate, FLAGS.momentum)
-
-  # Create the train_op
-  train_op = slim.learning.create_train_op(total_loss, optimizer)
-
-  # Run training.
-  slim.learning.train(train_op, my_log_dir)
+python src/train.py \
+    --train_dir=/raid/pengchong_data/tfmodel_test/ \
+    --dataset_dir=/raid/pengchong_data/Data/VOC/VOCdevkit/TFRecords/2007 \
+    --max_number_of_steps=100 \
+    --batch_size=2
 
 '''
-
-'''
-
-python train_simple.py \
-    --train_dir=/tmp/tfmodel/ \
-    --dataset_dir=/home/paul/Data/VOC/VOCdevkit/TFRecords/2007 \
-    --dataset_name=voc_2007 \
-    --dataset_split_name=train \
-    --learning_rate=0.001 \
-    --batch_size=32
-
-'''
-
+import os
 import tensorflow as tf
 
 from datasets import dataset_factory
@@ -289,9 +262,6 @@ def main(_):
 
         image_batch, gbboxes_batch = batch_queue.dequeue()
 
-        gbboxes_batch = yolo_v2.process_gbboxes(gbboxes_batch, [416, 416], [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]],
-                                                0.001, FLAGS.batch_size, max_box_num_per_image)
-
         summaries.add(tf.summary.image('batch image', image_batch))
 
         print(gbboxes_batch)
@@ -340,4 +310,5 @@ def main(_):
 
 
 if __name__ == '__main__':
+    os.environ['CUDA_VISIBLE_DEVICES']='0'
     tf.app.run()
