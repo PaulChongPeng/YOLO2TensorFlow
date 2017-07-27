@@ -54,31 +54,49 @@ def yolo_v2(inputs, num_classes, is_training, num_anchors=5, scope='yolo_v2'):
             return net, end_points
 
 
-def yolo_v2_head(inputs, num_classes, anchors):
+def yolo_v2_head(inputs, num_classes, anchors, is_training=True):
     input_shape = tf.shape(inputs)
     anchors_num = len(anchors)
 
     preds = tf.reshape(inputs, (input_shape[0], input_shape[1], input_shape[2], anchors_num, num_classes + 5))
+    box_coordinate = preds[:, :, :, :, 0:4]
 
-    anchors_tensor_w = tf.constant(anchors, tf.float32)[:, 0]
-    anchors_tensor_h = tf.constant(anchors, tf.float32)[:, 1]
-    anchors_tensor_w = tf.tile(anchors_tensor_w, [input_shape[0] * input_shape[1] * input_shape[2]])
-    anchors_tensor_h = tf.tile(anchors_tensor_h, [input_shape[0] * input_shape[1] * input_shape[2]])
-    anchors_tensor_w = tf.reshape(anchors_tensor_w, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
-    anchors_tensor_h = tf.reshape(anchors_tensor_h, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+    if is_training:
+        box_coordinate_xy = tf.sigmoid(box_coordinate[:, :, :, :, 0:2])
+        # box_coordinate_wh = box_coordinate[:, :, :, :, 2:4]
+        # box_coordinate = tf.concat([box_coordinate_xy, box_coordinate_wh], 4)
 
-    conv_height_index = tf.range(input_shape[1])
-    conv_width_index = tf.range(input_shape[2])
-    conv_height_index = tf.tile(conv_height_index, [input_shape[0] * input_shape[2] * anchors_num])
-    conv_width_index = tf.tile(conv_width_index, [input_shape[0] * input_shape[1] * anchors_num])
-    conv_height_index = tf.reshape(conv_height_index, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
-    conv_width_index = tf.reshape(conv_width_index, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+        anchors_tensor_w = tf.constant(anchors, tf.float32)[:, 0]
+        anchors_tensor_h = tf.constant(anchors, tf.float32)[:, 1]
+        anchors_tensor_w = tf.tile(anchors_tensor_w, [input_shape[0] * input_shape[1] * input_shape[2]])
+        anchors_tensor_h = tf.tile(anchors_tensor_h, [input_shape[0] * input_shape[1] * input_shape[2]])
+        anchors_tensor_w = tf.reshape(anchors_tensor_w, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+        anchors_tensor_h = tf.reshape(anchors_tensor_h, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
 
-    box_coordinate_x = tf.expand_dims(tf.sigmoid(preds[:, :, :, :, 0]) + tf.cast(conv_width_index, tf.float32), 4)
-    box_coordinate_y = tf.expand_dims(tf.sigmoid(preds[:, :, :, :, 1]) + tf.cast(conv_height_index, tf.float32), 4)
-    box_coordinate_w = tf.expand_dims(tf.exp(preds[:, :, :, :, 2]) * anchors_tensor_w, 4)
-    box_coordinate_h = tf.expand_dims(tf.exp(preds[:, :, :, :, 3]) * anchors_tensor_h, 4)
-    box_coordinate = tf.concat([box_coordinate_x, box_coordinate_y, box_coordinate_w, box_coordinate_h], 4)
+        box_coordinate_w = tf.expand_dims(tf.exp(preds[:, :, :, :, 2]) * anchors_tensor_w, 4)
+        box_coordinate_h = tf.expand_dims(tf.exp(preds[:, :, :, :, 3]) * anchors_tensor_h, 4)
+
+        box_coordinate = tf.concat([box_coordinate_xy, box_coordinate_w, box_coordinate_h], 4)
+    else:
+        anchors_tensor_w = tf.constant(anchors, tf.float32)[:, 0]
+        anchors_tensor_h = tf.constant(anchors, tf.float32)[:, 1]
+        anchors_tensor_w = tf.tile(anchors_tensor_w, [input_shape[0] * input_shape[1] * input_shape[2]])
+        anchors_tensor_h = tf.tile(anchors_tensor_h, [input_shape[0] * input_shape[1] * input_shape[2]])
+        anchors_tensor_w = tf.reshape(anchors_tensor_w, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+        anchors_tensor_h = tf.reshape(anchors_tensor_h, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+
+        conv_height_index = tf.range(input_shape[1])
+        conv_width_index = tf.range(input_shape[2])
+        conv_height_index = tf.tile(conv_height_index, [input_shape[0] * input_shape[2] * anchors_num])
+        conv_width_index = tf.tile(conv_width_index, [input_shape[0] * input_shape[1] * anchors_num])
+        conv_height_index = tf.reshape(conv_height_index, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+        conv_width_index = tf.reshape(conv_width_index, (input_shape[0], input_shape[1], input_shape[2], anchors_num))
+
+        box_coordinate_x = tf.expand_dims(tf.sigmoid(preds[:, :, :, :, 0]) + tf.cast(conv_width_index, tf.float32), 4)
+        box_coordinate_y = tf.expand_dims(tf.sigmoid(preds[:, :, :, :, 1]) + tf.cast(conv_height_index, tf.float32), 4)
+        box_coordinate_w = tf.expand_dims(tf.exp(preds[:, :, :, :, 2]) * anchors_tensor_w, 4)
+        box_coordinate_h = tf.expand_dims(tf.exp(preds[:, :, :, :, 3]) * anchors_tensor_h, 4)
+        box_coordinate = tf.concat([box_coordinate_x, box_coordinate_y, box_coordinate_w, box_coordinate_h], 4)
 
     box_confidence = preds[:, :, :, :, 4]
     box_class_probs = preds[:, :, :, :, 5:]
@@ -101,12 +119,20 @@ def yolo_v2_confidence_loss(box_coordinate, box_confidence, gbboxes_batch, objec
 def yolo_v2_coordinate_loss(box_coordinate, gbboxes_batch, object_mask, coordinates_scale):
     xy_loss = box_coordinate[..., 0:2] - gbboxes_batch[..., 0:2]
     xy_loss = tf.square(xy_loss)
+    xy_loss = object_mask * tf.reduce_sum(xy_loss, 4)
+    xy_loss = coordinates_scale * tf.reduce_sum(xy_loss)
+
     wh_loss = tf.sqrt(box_coordinate[..., 2:4]) - tf.sqrt(gbboxes_batch[..., 2:4])
     wh_loss = tf.square(wh_loss)
+    wh_loss = object_mask * tf.reduce_sum(wh_loss, 4)
+    wh_loss = coordinates_scale * tf.reduce_sum(wh_loss)
+
     coordinate_loss = xy_loss + wh_loss
-    coordinate_loss = object_mask * tf.reduce_sum(coordinate_loss, 4)
-    coordinate_loss = coordinates_scale * tf.reduce_sum(coordinate_loss)
-    return coordinate_loss
+    # coordinate_loss = object_mask * tf.reduce_sum(coordinate_loss, 4)
+    # coordinate_loss = coordinates_scale * tf.reduce_sum(coordinate_loss)
+
+
+    return coordinate_loss, xy_loss, wh_loss
 
 
 def yolo_v2_category_loss(box_class_probs, gbboxes_batch, object_mask, num_classes, class_scale):
@@ -130,8 +156,9 @@ def yolo_v2_loss(box_coordinate, box_confidence, box_class_probs, anchors, gbbox
 
     confidence_loss = yolo_v2_confidence_loss(box_coordinate, box_confidence, gbboxes_batch, object_mask, object_scale,
                                               no_object_scale)
-    coordinate_loss = yolo_v2_coordinate_loss(box_coordinate, gbboxes_batch, object_mask, coordinates_scale)
+    coordinate_loss, xy_loss, wh_loss = yolo_v2_coordinate_loss(box_coordinate, gbboxes_batch, object_mask,
+                                                                coordinates_scale)
     category_loss = yolo_v2_category_loss(box_class_probs, gbboxes_batch, object_mask, num_classes, class_scale)
 
     total_loss = confidence_loss + coordinate_loss + category_loss
-    return total_loss, confidence_loss, coordinate_loss, category_loss
+    return total_loss, confidence_loss, coordinate_loss, category_loss, xy_loss, wh_loss

@@ -217,7 +217,8 @@ def inference_sequential(image_batch):
     net, end_points = network_fn(image_batch)
 
     box_coordinate, box_confidence, box_class_probs = yolo_v2.yolo_v2_head(net, 20,
-                                                                           [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]])
+                                                                           [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]],
+                                                                           True)
 
     # preds = tf.reduce_max(box_class_probs, 4)
     # preds = tf.one_hot(tf.cast(preds, tf.int32), 20)
@@ -267,17 +268,20 @@ def main(_):
         print(gbboxes_batch)
 
         box_coordinate, box_confidence, box_class_probs = inference_sequential(image_batch)
-        total_loss, confidence_loss, coordinate_loss, category_loss = yolo_v2.yolo_v2_loss(box_coordinate,
-                                                                                           box_confidence,
-                                                                                           box_class_probs,
-                                                                                           [[1, 2], [1, 3], [2, 1],
-                                                                                            [3, 1], [1, 1]],
-                                                                                           gbboxes_batch,
-                                                                                           num_classes=20)
+        total_loss, confidence_loss, coordinate_loss, category_loss, xy_loss, wh_loss = yolo_v2.yolo_v2_loss(
+            box_coordinate,
+            box_confidence,
+            box_class_probs,
+            [[1, 2], [1, 3], [2, 1],
+             [3, 1], [1, 1]],
+            gbboxes_batch,
+            num_classes=20)
 
         summaries.add(tf.summary.scalar('loss_total', total_loss))
         summaries.add(tf.summary.scalar('loss_confidence', confidence_loss))
         summaries.add(tf.summary.scalar('loss_coordinate', coordinate_loss))
+        summaries.add(tf.summary.scalar('loss_coordinate_xy', xy_loss))
+        summaries.add(tf.summary.scalar('loss_coordinate_wh', wh_loss))
         summaries.add(tf.summary.scalar('loss_category', category_loss))
 
         # optimizer = tf.train.GradientDescentOptimizer(0.01)
@@ -310,5 +314,5 @@ def main(_):
 
 
 if __name__ == '__main__':
-    os.environ['CUDA_VISIBLE_DEVICES']='0'
+    os.environ['CUDA_VISIBLE_DEVICES'] = '0'
     tf.app.run()

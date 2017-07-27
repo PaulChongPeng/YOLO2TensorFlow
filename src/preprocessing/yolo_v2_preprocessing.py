@@ -20,14 +20,45 @@ def convert_box(bboxes):
     return x, y, w, h
 
 
-def get_index_and_value(index_0, index_1, index_2, index_3, box):
+def get_index(index_0, index_1, index_2, index_3):
     tf_index = tf.concat(
         [tf.reshape(tf.cast(index_0, tf.int64), [1]),
          tf.reshape(tf.cast(index_1, tf.int64), [1]),
          tf.reshape(tf.cast(index_2, tf.int64), [1]),
          tf.reshape(tf.constant(index_3, tf.int64), [1])], 0)
     tf_index = tf.reshape(tf_index, [1, 4])
-    tf_value = tf.reshape(box[index_3], [1])
+    return tf_index
+
+
+def get_index_and_value_x(index_0, index_1, index_2, box):
+    tf_index = get_index(index_0, index_1, index_2, 0)
+    tf_value = tf.reshape(box[0] - index_0, [1])
+    return tf_index, tf_value
+
+
+def get_index_and_value_y(index_0, index_1, index_2, box):
+    tf_index = get_index(index_0, index_1, index_2, 1)
+    tf_value = tf.reshape(box[1] - index_1, [1])
+    return tf_index, tf_value
+
+
+def get_index_and_value_w(index_0, index_1, index_2, box, anchor):
+    tf_index = get_index(index_0, index_1, index_2, 2)
+    tf_value = tf.reshape(box[2], [1])
+    #tf_value = tf.reshape(tf.log(box[2] / anchor[0]), [1])
+    return tf_index, tf_value
+
+
+def get_index_and_value_h(index_0, index_1, index_2, box, anchor):
+    tf_index = get_index(index_0, index_1, index_2, 3)
+    tf_value = tf.reshape(box[3], [1])
+    #tf_value = tf.reshape(tf.log(box[3] / anchor[1]), [1])
+    return tf_index, tf_value
+
+
+def get_index_and_value_c(index_0, index_1, index_2, box):
+    tf_index = get_index(index_0, index_1, index_2, 4)
+    tf_value = tf.reshape(box[4], [1])
     return tf_index, tf_value
 
 
@@ -44,13 +75,34 @@ def process_gbboxes_with_anchors(gbboxes, image_size, anchors, box_num):
         box = gbboxes[i]
         max_iou = tf.constant(0, tf.float32)
         index_2 = 0
+        anchor_wh = tf.constant([0,0],tf.float32)
         for j, anchor in enumerate(anchors):
             iou = tf_utils.tf_anchor_iou(box, anchor)
-            max_iou, index_2 = tf.cond(iou > max_iou, lambda: (iou, j), lambda: (max_iou, index_2))
-        for index_3 in range(5):
-            tf_index, tf_value = get_index_and_value(index[i, 0], index[i, 1], index_2, index_3, box)
-            indices.append(tf_index)
-            values.append(tf_value)
+            max_iou, index_2, anchor_wh = tf.cond(iou > max_iou, lambda: (iou, j, tf.constant(anchor,tf.float32)),
+                                                  lambda: (max_iou, index_2, anchor_wh))
+
+        index_0 = index[i, 0]
+        index_1 = index[i, 1]
+
+        tf_index, tf_value = get_index_and_value_x(index_0, index_1, index_2, box)
+        indices.append(tf_index)
+        values.append(tf_value)
+
+        tf_index, tf_value = get_index_and_value_y(index_0, index_1, index_2, box)
+        indices.append(tf_index)
+        values.append(tf_value)
+
+        tf_index, tf_value = get_index_and_value_w(index_0, index_1, index_2, box, anchor_wh)
+        indices.append(tf_index)
+        values.append(tf_value)
+
+        tf_index, tf_value = get_index_and_value_h(index_0, index_1, index_2, box, anchor_wh)
+        indices.append(tf_index)
+        values.append(tf_value)
+
+        tf_index, tf_value = get_index_and_value_c(index_0, index_1, index_2, box)
+        indices.append(tf_index)
+        values.append(tf_value)
 
     for temp_index in range(len(indices)):
         if temp_index == 0:
