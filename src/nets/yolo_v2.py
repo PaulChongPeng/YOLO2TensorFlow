@@ -111,9 +111,12 @@ def yolo_v2_confidence_loss(box_coordinate, box_confidence, gbboxes_batch, objec
     no_objects_loss = no_object_scale * (1 - object_mask) * tf.square(0 - box_confidence)
     # 该栅格被标记有物体，但是预测值和标记值的IOU小于0.6,则该栅格的预测值计算object_loss
     objects_loss = object_scale * object_mask * object_no_detections * tf.square(1 - box_confidence)
+
+    no_objects_loss = tf.reduce_sum(no_objects_loss)
+    objects_loss = tf.reduce_sum(objects_loss)
+
     confidence_loss = objects_loss + no_objects_loss
-    confidence_loss = tf.reduce_sum(confidence_loss)
-    return confidence_loss
+    return confidence_loss, objects_loss, no_objects_loss
 
 
 def yolo_v2_coordinate_loss(box_coordinate, gbboxes_batch, object_mask, coordinates_scale):
@@ -154,11 +157,12 @@ def yolo_v2_loss(box_coordinate, box_confidence, box_class_probs, anchors, gbbox
     object_mask = tf.reduce_sum(gbboxes_batch, 4)
     object_mask = tf.cast(object_mask > 0, tf.float32)
 
-    confidence_loss = yolo_v2_confidence_loss(box_coordinate, box_confidence, gbboxes_batch, object_mask, object_scale,
-                                              no_object_scale)
+    confidence_loss, objects_loss, no_objects_loss = yolo_v2_confidence_loss(box_coordinate, box_confidence,
+                                                                             gbboxes_batch, object_mask, object_scale,
+                                                                             no_object_scale)
     coordinate_loss, xy_loss, wh_loss = yolo_v2_coordinate_loss(box_coordinate, gbboxes_batch, object_mask,
                                                                 coordinates_scale)
     category_loss = yolo_v2_category_loss(box_class_probs, gbboxes_batch, object_mask, num_classes, class_scale)
 
     total_loss = confidence_loss + coordinate_loss + category_loss
-    return total_loss, confidence_loss, coordinate_loss, category_loss, xy_loss, wh_loss
+    return total_loss, confidence_loss, coordinate_loss, category_loss, xy_loss, wh_loss, objects_loss, no_objects_loss
