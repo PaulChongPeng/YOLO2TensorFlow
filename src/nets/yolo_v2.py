@@ -115,6 +115,9 @@ def yolo_v2_confidence_loss(box_coordinate, box_confidence, gbboxes_batch, objec
     no_objects_loss = tf.reduce_sum(no_objects_loss)
     objects_loss = tf.reduce_sum(objects_loss)
 
+    no_objects_loss = no_objects_loss/tf.cast(tf.shape(gbboxes_batch)[0],tf.float32)
+    objects_loss = objects_loss/tf.cast(tf.shape(gbboxes_batch)[0],tf.float32)
+
     confidence_loss = objects_loss + no_objects_loss
     return confidence_loss, objects_loss, no_objects_loss
 
@@ -124,11 +127,13 @@ def yolo_v2_coordinate_loss(box_coordinate, gbboxes_batch, object_mask, coordina
     xy_loss = tf.square(xy_loss)
     xy_loss = object_mask * tf.reduce_sum(xy_loss, 4)
     xy_loss = coordinates_scale * tf.reduce_sum(xy_loss)
+    xy_loss = xy_loss/tf.cast(tf.shape(gbboxes_batch)[0],tf.float32)
 
     wh_loss = tf.sqrt(box_coordinate[..., 2:4]) - tf.sqrt(gbboxes_batch[..., 2:4])
     wh_loss = tf.square(wh_loss)
     wh_loss = object_mask * tf.reduce_sum(wh_loss, 4)
     wh_loss = coordinates_scale * tf.reduce_sum(wh_loss)
+    wh_loss = wh_loss/tf.cast(tf.shape(gbboxes_batch)[0],tf.float32)
 
     coordinate_loss = xy_loss + wh_loss
     # coordinate_loss = object_mask * tf.reduce_sum(coordinate_loss, 4)
@@ -149,6 +154,7 @@ def yolo_v2_category_loss(box_class_probs, gbboxes_batch, object_mask, num_class
     category_loss = tf.square(category_loss)
     category_loss = object_mask * tf.reduce_sum(category_loss, 4)
     category_loss = class_scale * tf.reduce_sum(category_loss)
+    category_loss = category_loss/tf.cast(tf.shape(gbboxes_batch)[0],tf.float32)
     return category_loss
 
 
