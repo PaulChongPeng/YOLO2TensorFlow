@@ -30,15 +30,21 @@ def get_index(index_0, index_1, index_2, index_3):
     return tf_index
 
 
-def get_index_and_value_x(index_0, index_1, index_2, box):
+def get_index_and_value_x(index_0, index_1, index_2, box, is_training):
     tf_index = get_index(index_0, index_1, index_2, 0)
-    tf_value = tf.reshape(box[0] - index_0, [1])
+    if is_training:
+        tf_value = tf.reshape(box[0] - index_0, [1])
+    else:
+        tf_value = tf.reshape(box[0], [1])
     return tf_index, tf_value
 
 
-def get_index_and_value_y(index_0, index_1, index_2, box):
+def get_index_and_value_y(index_0, index_1, index_2, box, is_training):
     tf_index = get_index(index_0, index_1, index_2, 1)
-    tf_value = tf.reshape(box[1] - index_1, [1])
+    if is_training:
+        tf_value = tf.reshape(box[1] - index_1, [1])
+    else:
+        tf_value = tf.reshape(box[1], [1])
     return tf_index, tf_value
 
 
@@ -62,7 +68,7 @@ def get_index_and_value_c(index_0, index_1, index_2, box):
     return tf_index, tf_value
 
 
-def process_gbboxes_with_anchors(gbboxes, image_size, anchors, box_num):
+def process_gbboxes_with_anchors(gbboxes, image_size, anchors, box_num, is_training):
     gbboxes_coor = gbboxes[:, 0:4] * image_size[0] / 32
     gbboxes = tf.concat([gbboxes_coor, tf.expand_dims(gbboxes[:, 4], 1)], 1)
 
@@ -84,11 +90,11 @@ def process_gbboxes_with_anchors(gbboxes, image_size, anchors, box_num):
         index_0 = index[i, 0]
         index_1 = index[i, 1]
 
-        tf_index, tf_value = get_index_and_value_x(index_0, index_1, index_2, box)
+        tf_index, tf_value = get_index_and_value_x(index_0, index_1, index_2, box, is_training)
         indices.append(tf_index)
         values.append(tf_value)
 
-        tf_index, tf_value = get_index_and_value_y(index_0, index_1, index_2, box)
+        tf_index, tf_value = get_index_and_value_y(index_0, index_1, index_2, box, is_training)
         indices.append(tf_index)
         values.append(tf_value)
 
@@ -127,7 +133,7 @@ def process_gbboxes_with_anchors(gbboxes, image_size, anchors, box_num):
     return boxes
 
 
-def preprocess_bboxes(labels, bboxes, box_num):
+def preprocess_bboxes(labels, bboxes, box_num, is_training):
     convert_box(bboxes)
     x, y, w, h = convert_box(bboxes)
     bboxes = tf.concat([x, y, w, h, tf.cast(tf.reshape(labels, (tf.size(labels), 1)), tf.float32)], 1)
@@ -135,21 +141,23 @@ def preprocess_bboxes(labels, bboxes, box_num):
     boxes = tf.concat([bboxes, boxes], 0)
     boxes = tf.reshape(boxes, (box_num, 5))
 
-    boxes = process_gbboxes_with_anchors(boxes, [416, 416], [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]], box_num)
+    boxes = process_gbboxes_with_anchors(boxes, [416, 416], [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]], box_num, is_training)
 
     return boxes
 
 
 def preprocess_for_train(image, labels, bboxes, out_size, box_num, angle, saturation, exposure, hue, jitter):
     resized_image = tf.image.resize_images(image, out_size)
-    bboxes = preprocess_bboxes(labels, bboxes, box_num)
+    bboxes = preprocess_bboxes(labels, bboxes, box_num, True)
 
     return resized_image, bboxes
 
 
 def preprocess_for_eval(image, labels, bboxes, out_size, box_num):
     resized_image = tf.image.resize_images(image, out_size)
-    bboxes = preprocess_bboxes(labels, bboxes, box_num)
+
+    bboxes = preprocess_bboxes(labels, bboxes, box_num, False)
+
 
     return resized_image, bboxes
 

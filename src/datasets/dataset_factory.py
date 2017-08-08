@@ -18,12 +18,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from datasets import voc_2007,voc_2012,imagenet_1000
+from datasets import voc_2007,voc_2012,imagenet_1000,decorations
 
 datasets_map = {
     'voc_2007': voc_2007,
     'voc_2012': voc_2012,
     'imagenet_1000':imagenet_1000,
+    'decorations':decorations,
 }
 
 

@@ -177,6 +177,9 @@ tf.app.flags.DEFINE_integer(
     'batch_size', 32, 'The number of samples in each batch.')
 
 tf.app.flags.DEFINE_integer(
+    'num_classes', 20, 'The number of classes.')
+
+tf.app.flags.DEFINE_integer(
     'train_image_size', (416, 416), 'Train image size')
 
 tf.app.flags.DEFINE_integer('max_number_of_steps', 10000,
@@ -210,18 +213,18 @@ FLAGS = tf.app.flags.FLAGS
 def inference_sequential(image_batch):
     network_fn = nets_factory.get_network_fn(
         name=FLAGS.model_name,
-        num_classes=20,
+        num_classes=FLAGS.num_classes,
         is_training=True,
         weight_decay=FLAGS.weight_decay,
         num_anchors=5)
     net, end_points = network_fn(image_batch)
 
-    box_coordinate, box_confidence, box_class_probs = yolo_v2.yolo_v2_head(net, 20,
+    box_coordinate, box_confidence, box_class_probs = yolo_v2.yolo_v2_head(net, FLAGS.num_classes,
                                                                            [[1, 2], [1, 3], [2, 1], [3, 1], [1, 1]],
                                                                            True)
 
     # preds = tf.reduce_max(box_class_probs, 4)
-    # preds = tf.one_hot(tf.cast(preds, tf.int32), 20)
+    # preds = tf.one_hot(tf.cast(preds, tf.int32), FLAGS.num_classes)
 
     # return preds
 
@@ -274,7 +277,7 @@ def main(_):
             box_class_probs,
             [[1, 2], [1, 3], [2, 1],[3, 1], [1, 1]],
             gbboxes_batch,
-            num_classes=20)
+            num_classes=FLAGS.num_classes)
 
         summaries.add(tf.summary.scalar('loss_total', total_loss))
         summaries.add(tf.summary.scalar('loss_confidence', confidence_loss))

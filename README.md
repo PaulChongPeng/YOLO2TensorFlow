@@ -2,7 +2,18 @@
 
 YOLOv2 implemented by TensorFlow
 
-I will upload my code soon
+
+TODO:
+
+1. 数据增强
+2. 损失函数优化
+3. 多GPU部署训练
+4. 性能评估脚本
+5. detector.py
+6. preprocess_bboxes 优化
+7. draw box
+
+
 
 # References:
 
