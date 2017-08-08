@@ -1,6 +1,15 @@
 import tensorflow as tf
 import os
 
+'''
+python src/train.py --train_dir=/tmp/tfmodel  \
+    --dataset_name=decorations  \
+    --dataset_dir=/home/paul/Data/decorations/TFRecords/2017  \
+    --num_classes=4  \
+    --max_number_of_steps=1000  \
+    --batch_size=2  \
+'''
+
 slim = tf.contrib.slim
 
 classes = ["glasses", "hat", "bird", "package", "tie"]
@@ -23,7 +32,7 @@ MAX_BOX_NUM_PER_IMAGE = {
 NUM_CLASSES = 4
 
 
-def get_split(split_name, dataset_dir, file_pattern=FILE_PATTERN, reader=None,
+def get_split(split_name, dataset_dir, file_pattern=None, reader=None,
               split_to_sizes=SPLITS_TO_SIZES, items_to_descriptions=ITEMS_TO_DESCRIPTIONS, num_classes=NUM_CLASSES):
     """Gets a dataset tuple with instructions for reading Pascal VOC type dataset.
 
@@ -43,6 +52,9 @@ def get_split(split_name, dataset_dir, file_pattern=FILE_PATTERN, reader=None,
     """
     if split_name not in split_to_sizes:
         raise ValueError('split name %s was not recognized.' % split_name)
+    if file_pattern is None:
+        file_pattern = FILE_PATTERN
+
     file_pattern = os.path.join(dataset_dir, split_name, file_pattern)
 
     # Allowing None in the signature so that dataset_factory can use the default.
