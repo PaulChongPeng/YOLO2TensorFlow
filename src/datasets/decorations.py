@@ -12,7 +12,7 @@ python src/train.py --train_dir=/tmp/tfmodel  \
 
 slim = tf.contrib.slim
 
-classes = ["glasses", "hat", "bird", "package", "tie"]
+classes = ["glasses", "hat", "package", "tie"]
 FILE_PATTERN = '*.tfrecords'
 ITEMS_TO_DESCRIPTIONS = {
     'image': 'A color image of varying height and width.',
